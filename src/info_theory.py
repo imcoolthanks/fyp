@@ -13,8 +13,7 @@ SIGNIFICANCE_LEVEL = 5
 
 # =============== Surrogate Data Generation ==================
 
-def surrogate(func, df, *args):
-# def surrogate(num_bins, func, df, *args):
+def surrogate(tail_test, func, df, *args):
     actual_value = func(df, *args)
 
     sheet_name = f"{func.__name__}_over_time" if (df.index.max() - df.index.min()).days < 15 * 365 else func.__name__
@@ -26,9 +25,13 @@ def surrogate(func, df, *args):
     except:
         random_values = generate_surrogate_data(func, df, column_name, *args)
 
-    lower_bound = np.percentile(random_values, SIGNIFICANCE_LEVEL)
-    upper_bound = np.percentile(random_values, 100 - SIGNIFICANCE_LEVEL)
-    return actual_value - np.mean(random_values) if actual_value < lower_bound or actual_value > upper_bound else 0
+    effective_value = actual_value - np.mean(random_values) if actual_value < lower_bound or actual_value > upper_bound else 0
+    if tail_test == 1:
+        return effective_value if effective_value > np.percentile(random_values, 100 - SIGNIFICANCE_LEVEL) else 0
+    elif tail_test == 2:
+        lower_bound = np.percentile(random_values, SIGNIFICANCE_LEVEL / 2)
+        upper_bound = np.percentile(random_values, (100 - SIGNIFICANCE_LEVEL) / 2)
+        return effective_value if actual_value < lower_bound or actual_value > upper_bound else 0
 
 def args_to_column_name(df, args, num_bins = None):
     if num_bins is None:
@@ -109,7 +112,6 @@ def Oinfo(df, continuous = False):
         if isinstance(df, dict):
             df = pd.DataFrame.from_dict(df)
         return kraskov_jidt.calc_oinfo_kraskov(df)
-    # return total_correlation(asset_timeseries) - dual_correlation(asset_timeseries)
 
 def check_validity_of_Oinfo(df):  
     assets_timeseries = df_to_tuple_dictionary(df)
